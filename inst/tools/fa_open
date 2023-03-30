@@ -1,0 +1,131 @@
+#!/usr/bin/env Rscript
+#### FAopen script
+#### Alex Deckmyn, April 2016
+usage <- "USAGE:\n   FAopen <filename>\n"
+carg <- commandArgs(trailingOnly=TRUE)
+if (length(carg) != 1) {
+  cat(usage, "\n")
+  quit(save="no")
+}
+
+
+library(tcltk)
+# only because maps version may be < 3.2
+# and in that case "maps::map" doesn't work without explicit loading
+library(maps)
+if (!suppressWarnings(suppressMessages(require(Rfa, quietly=TRUE)))) {
+  cat("Rfa not found in default R_LIBS path. Trying HARPDIR and ~/Harp.\n")
+  HARPDIR <- Sys.getenv("HARPDIR",
+                        unset=paste0(Sys.getenv("HOME"),"/Harp"))
+  RDIR <- paste0(HARPDIR,"/R-libs")
+  .libPaths(RDIR)
+  if (!suppressWarnings(suppressMessages(require(Rfa, quietly=TRUE)))) {
+    stop("Rfa not found.")
+  }
+}
+
+filename <- carg[1]
+
+### open file, get field list
+fafile <- FAopen(filename)
+fieldlist <- fafile$list$name
+finished <- tclVar(0)
+
+# actually this is already in meteogrid, so no need to re-define...
+# but it's nice to have it here for reference
+trim <- function (x) {
+  sub(pattern = " +$", replacement = "", x = sub(pattern = "| +", 
+    replacement = "", x))
+}
+
+### commands linked to the click buttons:
+
+com.iview <- function() {
+# create a window with explicit white background!
+# that works better if you save to png
+  ff <- tclvalue(field)
+  if (is.null(dev.list())) X11(bg="white")
+# now parse the options (there must be a more direct way...)
+  optlist0 <- tclvalue(options)
+  optlist1 <- strsplit(optlist0,",")[[1]]
+  optlist2 <- strsplit(optlist1,"=")
+# use eval(parse()) to turn, e.g., the string "TRUE" into the value TRUE
+  optlist3 <- lapply(optlist2, function(x) eval(parse(text=x[[2]])) )
+  names(optlist3) <- vapply(optlist2, function(x) trim(x[[1]]),FUN.VALUE="a")
+# 
+  mylist <- c(x=substitute(FAdec(fafile,ff)), optlist3)
+
+  do.call(iview, mylist)
+}
+
+com.close <- function() {
+  try(dev.off(), silent=TRUE)
+  tclvalue(finished) <- 1
+#  tkdestroy(win) ## better just wait for tclvalue(finished) to change
+}
+
+com.save <- function() {
+  plotfile <- tclvalue(outfile)
+  cat("Saving image to",plotfile,"\n")
+  ftype <- substring(plotfile,nchar(plotfile)-2) # png or pdf
+  try(dev.copy(device=eval(parse(text=ftype)), file=plotfile), silent=TRUE)
+# alternative:
+#  dev.print(device=png)
+
+# IF this worked, close the png device
+# we need to check!
+  if (dev.cur() > 2) try(dev.off(), silent=TRUE)
+}
+
+### create the Tk widgets:
+
+win <- tktoplevel()
+tktitle(win) <- "FAopen"
+
+w.fname <- tklabel(win, text=paste("FAfile:", filename), 
+                   width=-10)
+#w.legend <- tkcheckbutton(win, text="legend" )
+
+# text boxes to give graphic options and output file
+# the default values can easily be adapted
+options <- tclVar("legend=TRUE, mapcol='grey'")
+w.options <- tkentry(win, width=30, textvariable=options)
+
+outfile <- tclVar("myplot.png")
+w.outfile <- tkentry(win, width=30, textvariable=outfile)
+
+# field selection box (default: first on the list)
+field <- tclVar(fieldlist[1])
+w.field <- ttkcombobox(win, values=fieldlist, textvariable=field)
+
+# buttons for iview, save, close
+w.iview <- ttkbutton(win,text="iview", width=10, command=com.iview)
+#tkgrid.configure(w.plot, side="right")
+w.close <- ttkbutton(win,text="close", width=10, command=com.close)
+#tkpack.configure(w.close, side="right")
+w.save <- ttkbutton(win,text="save", width=10, command=com.save)
+#tkgrid.configure(w.save, side="left")
+
+### build the interface
+### TODO: get rid of the <Tcl> output in Rscript in a nicer way???
+
+invisible(tkgrid(w.fname, padx=10, pady=5, columnspan=3, sticky="w"))
+invisible(tkgrid(tklabel(win,text="   ")))
+invisible(tkgrid(w.field, padx=10, columnspan=2, sticky="w"))
+invisible(tkgrid(tklabel(win,text="iview options:")))
+invisible(tkgrid(w.options, columnspan=3, padx=10, stick="w"))
+invisible(tkgrid(tklabel(win,text="output file")))
+invisible(tkgrid(w.outfile, columnspan=3, padx=10, stick="w"))
+invisible(tkgrid(tklabel(win,text="   ")))
+invisible(tkgrid(w.iview, w.save, w.close,padx=5))
+invisible(tkgrid.configure(w.save,sticky="w"))
+invisible(tkgrid(tklabel(win,text="   ")))
+
+# Capture the event "Destroy" and when this happens, assign 2 to 'finished'.
+invisible(tkbind(win,"<Destroy>",function() tclvalue(finished) <- 2))
+
+# make the script wait until "close" is clicked or the window is closed
+
+invisible(tkwait.variable(finished))
+#if (tclvalue(finished)==2) cat("Please use the 'close' button :-)\n")
+invisible(tkdestroy(win))

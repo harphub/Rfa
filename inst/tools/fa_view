@@ -1,0 +1,35 @@
+#!/usr/bin/env Rscript
+usage <- "USAGE:\n   FAview <filename> <field>\n"
+carg <- commandArgs(trailingOnly=TRUE)
+if (length(carg) != 2) {
+  cat(usage, "\n")
+  quit(save="no")
+}
+
+
+library(tcltk)
+library(maps) # only because maps version may be < 3.1
+if (!suppressWarnings(suppressMessages(require(Rfa, quietly=TRUE)))) {
+  cat("Rfa not found in default R_LIBS path. Trying HARPDIR and ~/Harp.\n")
+  HARPDIR <- Sys.getenv("HARPDIR",
+                        unset=paste0(Sys.getenv("HOME"),"/Harp"))
+  RDIR <- paste0(HARPDIR,"/R-libs")
+  .libPaths(RDIR)
+  if (!suppressWarnings(suppressMessages(require(Rfa, quietly=TRUE)))) {
+    stop("Rfa not found.")
+  }
+}
+
+# a very simple interface:
+fafile <- carg[1]
+ff <- carg[2]
+
+# open graphical window
+X11()
+
+# make the actual plot
+iview(FAdec(fafile,ff), legend=TRUE)
+
+# now wait for the window to close
+while (!is.null(dev.list())) Sys.sleep(1)
+

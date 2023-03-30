@@ -1,0 +1,28 @@
+# TODO: a generic cross-section
+FAsection <- function(fa, par="TEMPERATURE", type="S",
+                      start=c(1,1), stop=c(attr(fa,"domain")$nx, attr(fa,"domain")$ny),
+                      npoints=NULL,
+                      plist=seq(1000, 50, by = -50),
+                      plot=FALSE, plot.function=contour, ...){
+
+  if (!inherits(fa, "FAfile")) fa <- FAopen(fa)
+# if (start[1]==stop[1]) FAslice(..., axis="X", ...)
+# if (start[2]==stop[2]) FAslice(..., axis="Y", ...)
+
+  # now find the interpolation points along the section
+  if (is.null(npoints)) {
+    npoints <- round(mean(stop - start + 1))
+  }
+  point.index <- cbind( x=seq(start[1], stop[1], length=npoints),
+                   y=seq(start[2], stop[2], length=npoints))
+  result <- FAsounding()
+
+  if (plot) {
+    plot.function(1:npoints, mylevels, result, ylim=rev(range(mylevels)), asp=NULL, ...)
+#    title(ylab="level")
+#    Axis(mylevels,side=2)
+  }
+  invisible(result)
+}
+
+

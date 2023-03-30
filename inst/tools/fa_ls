@@ -1,0 +1,22 @@
+#!/usr/bin/env Rscript
+usage <- "USAGE:\n fa_ls filename\n"
+carg <- commandArgs(trailingOnly=TRUE)
+if (length(carg) != 1) if (length(carg) != 1) {
+  cat(usage, "\n")
+  quit(save="no")
+}
+# load Rfa
+if (!suppressWarnings(suppressMessages(require(Rfa, quietly=TRUE)))) {
+  cat("Rfa not found in default R_LIBS path. Trying HARPDIR and ~/Harp.\n")
+  HARPDIR <- Sys.getenv("HARPDIR",
+                        unset=paste0(Sys.getenv("HOME"),"/Harp"))
+  RDIR <- paste0(HARPDIR,"/R-libs")
+  .libPaths(RDIR)
+  if (!suppressWarnings(suppressMessages(require(Rfa, quietly=TRUE)))) {
+    stop("Rfa not found.")
+  }
+}
+
+fafile <- carg[1]
+FAopen(fafile)$list$name
+

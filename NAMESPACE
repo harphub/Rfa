@@ -1,0 +1,16 @@
+importFrom("graphics", "contour", "plot", "points")
+importFrom("stats", "fft", "na.omit", "predict")
+importFrom("utils", "data")
+importFrom("meteogrid", "as.geofield")
+
+exportPattern("^FA")
+exportPattern("^LFI")
+export(biper,ecto)
+export(ParseTar)
+S3method(print, FAfile)
+S3method(print, FAframe)
+S3method(print, LFIfile)
+S3method(FAdec, FAfile)
+S3method(FAdec, character)
+useDynLib("Rfa")
+
