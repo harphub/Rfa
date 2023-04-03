@@ -67,24 +67,32 @@ ectoplot <- function(data,add=FALSE,...){
 }
 ################################################################
 
-### bi-periodise a field using etibihi routine (splines)
-### same routine as in ALADIN
-
-biper <- function(data, ext = c(11,11)){
+### bi-periodise a field using cubic splines
+biper <- function(data, ext = c(11,11), bc=0){
   if (length(ext) == 1) ext <- rep(ext, 2)
-  res <- add_ext(data, ext)
-  smooth_ext(res, ext)
+  if (any(dim(data) < 3 )) stop("grid dimensions must be >= 3")
+  realdim <- dim(data) 
+  newdim <- dim(data) + ext
+  data2 <- matrix(0, nrow=newdim[1],ncol=newdim[2])
+  data2[1:realdim[1], 1:realdim[2]] <- data
+  # call C-spline code
+  res <- .C("biper", data=as.numeric(as.vector(data2)),
+              as.integer(realdim[1]), as.integer(realdim[2]),
+              as.integer(newdim[1]), as.integer(newdim[2]), as.integer(bc))$data
+  # smoothing
+  res <- .C("smooth_extension", data=res,
+              as.integer(realdim[1]), as.integer(realdim[2]),
+              as.integer(newdim[1]), as.integer(newdim[2]), as.integer(bc))$data
+  matrix(res, nrow=newdim[1], ncol=newdim[2])
+
 }
 
-add_ext <- function(data, ext=c(11,11)) {
+add_ext <- function(data, ext=c(11,11), bc=0) {
   realdim <- dim(data) 
   newdim <- dim(data) + ext
   data2 <- matrix(0, nrow=newdim[1],ncol=newdim[2])
   data2[1:realdim[1], 1:realdim[2]] <- data
 
-  res <- .C("biper", data=as.numeric(as.vector(data2)),
-              as.integer(realdim[1]), as.integer(realdim[2]),
-              as.integer(newdim[1]), as.integer(newdim[2]))$data
   matrix(res,nrow=newdim[1],ncol=newdim[2])
 }
 
