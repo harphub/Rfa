@@ -70,14 +70,22 @@ FAread_meta <- function(filename, archname=NULL, quiet=TRUE){
 }
 
 FAread_header <- function(fa) {
+  offset <- 0
   if (!inherits(fa, "connection")) {
-    if (inherits(fa,"FAfile")) filename <- attr(fa,"filename")
+    on.exit(try(close(fa), silent=TRUE))
+    if (inherits(fa, "FAfile")) {
+      if (!is.null(attr(fa, "tarfile"))) {
+        filename <- attr(fa, "tarfile")
+        offset <- attr(fa, "tar.offset")
+      } else  {
+        filename <- attr(fa, "filename")
+      }
+    }
     else if (is.character(fa)) filename <- fa
     else stop("Not a valid file.")
     fa <- file(filename,open="rb")
-    on.exit(close(fa))
   }
-  seek(fa, 0, rw="read")
+  seek(fa, offset, rw="read")
   header <- readBin(fa,what="integer",n=22,size=8,endian="big")
   header
 }
@@ -338,8 +346,10 @@ FAdomain <- function(faframe,quiet=TRUE){
   if (!quiet) cat("with extension zone:",faframe$ndgl,"x",faframe$ndlon,"\n")
   if (faframe$rpk == -9){
     projtype <- list(proj="latlong")
-  } else if (faframe$nroteq == -2 || faframe$lat0 == 0) {
-    projtype <- "mercator"
+  } else if (faframe$nroteq == -1 && faframe$lat0 == 0) {
+    projtype <- "merc"
+  } else if (faframe$nroteq == -2 ) {
+    projtype <- "omerc"
   } else if (faframe$rpk == 1) {
     projtype <- "stere"
   } else {
@@ -351,7 +361,7 @@ FAdomain <- function(faframe,quiet=TRUE){
               nxny = c(nx,ny), dxdy = c(faframe$delx, faframe$dely),
               clonlat = c(faframe$lonc, faframe$latc), 
               exey = c(faframe$ndlon - nx, faframe$ndgl-ny),
-              tilt = faframe$lon0,
+              tilt = if (projtype == "omerc") faframe$lon0 else 0,
               earth = list(R = 6371229))
 
 ## for old FA files that don't have clonlat:
