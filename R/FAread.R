@@ -126,7 +126,7 @@ FAdec.FAfile <- function(fa, field, clip=TRUE, outform="G", quiet=TRUE, drop_mis
     cat("WARNING: this is an arpege file. Decoding is not supported.\nAnything may happen!\n")
   }
   #-- 1. fix the filename
-  filename <- if(is.null(attr(fa, "tarfile"))) attr(fa, "filename") else attr(fa, "tarfile") 
+  filename <- if (is.null(attr(fa, "tarfile"))) attr(fa, "filename") else attr(fa, "tarfile")
 
   #-- 2. fix index of the field
   fnr <- vapply(field, function(f) FAfind(fa, f)[1], 0.)
@@ -185,14 +185,25 @@ FAdec.FAfile <- function(fa, field, clip=TRUE, outform="G", quiet=TRUE, drop_mis
   result
 }
 
-FAread_msg <- function(filename, fpos, flen) {
-  if (inherits(filename, "FAfile")) filename <- attr(filename, "filename")
-  ff <- file(filename, open="rb")
-  on.exit(try(close(ff), silent=TRUE))
+FAread_msg <- function(fa, fpos, flen) {
+  # if "fa" is a connection, just jump to the location
+  # if it is a FA file, check whether it is part of a tar archive
+  # BUT: we assume the offset is allready correct, because that is standard in FAopenTar
+  if (!inherits(fa, "connection")) {
+    on.exit(try(close(fa), silent=TRUE))
+    if (inherits(fa, "character")) filename <- fa
+    else if (inherits(fa, "FAfile")) {
+      if (!is.null(attr(fa, "tarfile"))) {
+        filename <- attr(fa, "tarfile")
+        if (fpos < attr(fa, "tar.offset")) stop("FAread_msg: field position smaller than tar offset.")
+      } else filename <- attr(fa, "filename")
+    } else stop("FAread_msg error: bad fa")
+
+    fa <- file(filename, open="rb")
+  }
   #--  jump to data location & read message
-  seek(ff, fpos)
-  inbuf <- readBin(ff, "raw", n=flen)
-  close(ff)
+  seek(fa, fpos)
+  inbuf <- readBin(fa, "raw", n=flen)
   if (length(inbuf) != flen){
     stop("Unable to read full FA message. Broken file?")
   }
