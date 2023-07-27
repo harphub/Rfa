@@ -11,29 +11,41 @@ FindInTar <- function(archname, filename, quiet=TRUE){
   on.exit(close(tf))
   # offset of first entry is zero
   offset <- 0
+  count <- 0
   while (TRUE) {
     # goto beginning of entry
     seek(tf, offset)
     # read file name
-    fName <- readBin(tf,what="char",n=1,size=100)
-    if (nchar(fName)==0) stop(sprintf('file %s not found in archive\n',filename))
-    # read size
-    seek(tf, offset+124, origin='start')
+    fName <- readBin(tf, what="char", n=1, size=100)
+    if (nchar(fName)==0) stop(sprintf('file %s not found in archive\n', filename))
+    # we have found a file
+    # is this a Pax header or real file?
+    seek(tf, offset + 156)
+    ht <- readBin(tf, what="char", n=1, size=1)
+    pax <- (ht %in% c("x", "g"))
+      # this is an extended Pax Header
+      # which we will not support for now
+      # so skip this "file"
+
 # file size is encoded as a length 12 octal string, 
 # with the last character being '\0' (so 11 actual characters)
+    # read size
+    seek(tf, offset + 124, origin='start')
     sz <- readChar(tf, nchars=11) 
     # convert string to number of bytes
     sz <- sum(as.numeric(strsplit(sz,'')[[1]])*8^(10:0))
     if (!quiet) cat(sprintf('entry %s, %i bytes\n', fName, sz))
-    if (fName==filename) {
-      break
-    } else {
-      # goto the next message
-      offset <- offset+512*(ceiling(sz/512)+1)
+    if (!pax) {
+      count <- count + 1
+      if ( (is.numeric(filename) && count == filename) || fName==filename) {
+        break
+      }
     }
+    # goto the next message
+    offset <- offset + 512*(ceiling(sz/512)+1)
   }
   # skip entry header
-  offset <- offset+512
+  offset <- offset + 512
   return(offset)
 }
 
@@ -57,6 +69,8 @@ zip_skip <- function(zfile, skip, by=10^7) {
 #'     Every list element has 3 attributes: filename, (byte) location and file size.
 #' @export
 ParseTar <- function(archname, gzip=FALSE) {
+  # TODO: check for "gzip" by looking at first 2 bytes (==? as.raw(c(31,139)))
+  # BUT: FAopen will not work easily on tgz files, because you'd have to re-code all binary reads
   blocksize <- 512
   if (!file.exists(archname)) stop("File ", archname, " not found")
   # open archive
