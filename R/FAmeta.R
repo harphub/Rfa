@@ -2,17 +2,28 @@
 ### I decided not to read them with standard FAdec.
 ### This is even independent from FAopen !
 FAread_meta <- function(filename, archname=NULL, quiet=TRUE){
-  if (inherits(filename,"FAfile")) { # it's an FA object, not a filename
-    archname <- attr(filename,"tarfile")
-    tar.offset <- attr(filename,"tar.offset")
-    filename <- attr(filename,"filename")
+
+  if (inherits(filename, "FAfile")) { # it's an FA object, not a filename
+    archname <- attr(filename, "tarfile")
+    tar.offset <- attr(filename, "tar.offset")
+    filename <- attr(filename, "filename")
   } else {
-    if (is.null(archname)) tar.offset <- 0
-    else tar.offset <- FindInTar(archname, filename)
+    if (!is.null(archname)) {
+      tar.offset <- FindInTar(archname, filename)
+    } else if (!is.null(attr(filename, "tarfile"))) {
+      archname <- attr(filename, "tarfile")
+      tar.offset <- attr(filename, "tar.offset")
+    } else {
+      tar.offset <- 0
+    }
   }
    
   on.exit(try(close(ff)))
-  if (is.null(archname)) ff <- file(filename, open="rb") else ff <- file(archname, open="rb")
+  if (is.null(archname)) {
+    ff <- file(filename, open="rb") 
+  } else {
+    ff <- file(archname, open="rb")
+  }
   seek(ff, tar.offset)
 
 #-- in fact the second value gives the length of this section. But it is always 22.

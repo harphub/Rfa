@@ -1,6 +1,6 @@
 Package: Rfa
-Version: 4.3.6
-Date: 2023-05-10
+Version: 4.3.7
+Date: 2023-07-27
 Title: Read and work with binary FA files (Alaro/Arome LAM model output)
 Description: Contains functions for reading and writing binary FA files. 
 Author: Alex Deckmyn <alex.deckmyn@meteo.be>.
