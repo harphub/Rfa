@@ -7,7 +7,7 @@ author:
     e-mail: alex.deckmyn@meteo.be
 title: |
     File formats in the ALADIN universe\
-    The internal structure of LFI, FA, Surfex and MF files 
+    The internal structure of LFI, FA, Surfex and MF files
 ---
 
 **THIS IS WORK IN PROGRESS!!!**
@@ -176,15 +176,15 @@ Logique” as a *data record* (either a data field or part of the frame).
 
 -   S1[14] Creation date (integer yyyymmdd).
 
--   S1[15] Creation hour (integer hhmmss).
+-   S1[15] Creation time (integer hhmmss).
 
 -   S1[16] Date of last modification (integer yyyymmdd).
 
--   S1[17] Hour of last modification (integer hhmmss).
+-   S1[17] Time of last modification (integer hhmmss).
 
 -   S1[18] Date of first modification.
 
--   S1[19] Hour of first modification.
+-   S1[19] Time of first modification.
 
 -   S1[20] Number of pairs of index sectors. Usually 1. I don’t really
     know what this means. *It is 1 even if there is a second sector for
@@ -393,7 +393,7 @@ defining the projection:
         Lon0 <- LFIread(lfi,"LON0","numeric")
     #  rpk <-  LFIread(lfi,"RPK","numeric")  ### not necessary
     #  beta <- LFIread(lfi,"BETA","numeric") ### assumed 0
-        xhat <- LFIread(lfi,"XHAT","numeric") 
+        xhat <- LFIread(lfi,"XHAT","numeric")
         yhat <- LFIread(lfi,"YHAT","numeric")
         dx <- xhat[2] - xhat[1]
         dy <- yhat[2] - yhat[1]
@@ -496,7 +496,7 @@ characteristics:
 
           ALADIN                                                  ARPEGE
   ------- ------------------------------------------------------- --------
-   int 1  subtruncation                                           
+   int 1  subtruncation
    int 2  0:C+I gp,
           -1:C+I+E gp,
           1:C+I+E spectral for dynamical fields and gp for rest  
@@ -717,12 +717,12 @@ scales. In all, this gives us a list of different cases to consider.
 Some are quite easy, others less so.
 
 The first two entries (64 bit integers) define the kind of data that is
-encoded in the field. Integer 1 gives the kind of encoding (none,
+encoded in the field. Integer 1 (NGRIB) gives the kind of encoding (none,
 internal GRIB or GRIBEX ...). Value 2 is more common than 1. This “FA
 extended” GRIB encoding adds separate *min* and *max* values that are
 used for more exact reconstruction of the original values. If the GRIB
 type is 1, the minimum value is read from the GRIB message itself, and
-the maximum is derived from that. The second integer indicates whether
+the maximum is derived from that. The second integer (NCOSP) indicates whether
 it is spectral or grid point data. Depending on those 6 combinations,
 there may be more integers: the number of bits per encoded value
 (KNBITS), min and max value in the GRIB encoding, non-compressed scale
@@ -730,8 +730,8 @@ there may be more integers: the number of bits per encoded value
 
    entry   gp, no GRIB   gp, GRIB       gp, FA-GRIB       sp, no GRIB   sp, GRIB   sp, FA-GRIB
   ------- ------------- ---------- --------------------- ------------- ---------- -------------
-   int 1     $\le 0$        1       $\ge 2$ (usually 2)     $\le 0$        1         $\ge 2$
-   int 2        0           0                0                 1           1            1
+   NGRIB     $\le 0$        1           2-4 (usually 2)     $\le 0$        1            2-4
+   NCOSP        0           0                0                 1           1            1
      3       (data)       KNBITS          KNBITS            (data)       KNBITS      KNBITS
      4                    (data)            min                          KSTRON      KSTRON
      5                                      max                          KPUILB      KPUILB
@@ -739,10 +739,8 @@ there may be more integers: the number of bits per encoded value
      7                                                                                 max
      8                                                                               (data)
 
-**WARNING** in cy43t2, new possibilities have appeared. The first
-integer can now have values $-1, 0, 1, 2, 3, 4$. $-1$ and $3$ signify a
-different ordering of spectral coefficients. This needs further
-investigation. For spectral fields, int2$= -1, 3$ signifies that the
+**WARNING** in cy43t2, new possibilities have appeared. NGRIB can now have values $-1, 0, 1, 2, 3, 4$ or $120 -- 240$.
+This needs further investigation. For spectral fields, int2$= -1, 3$ signifies that the
 spectral coefficients are ordered differently (i.e. like in the model
 vector).
 
@@ -781,6 +779,16 @@ minimum value (an IBM-formatted float) and scaling.
 
 **NOTE: in cy43t1, grib-1 and even grib-2 were introduced. I’ll document
 that as soon as I found out how it works.**
+
+NGRIB values between 120 to 240 signify new encoding manner using
+grib\_api (now **eccodes**) from ECMWF.
+
+**WARNING** it appears that in this new version, the data stream is **byte-swapped**!
+Presumably this was developped on a big-endian platform where the data was
+first read as big-endian 8-byte integers and then passed to eccodes.
+But now, on little-endian platforms this effectively means that the data stream must
+be **byte-swapped in chuncks of 8 bytes**. More or less the same weird situation as ECHKEVO files.
+
 
 ### Spectral data
 

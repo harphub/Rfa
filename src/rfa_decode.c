@@ -277,7 +277,7 @@ void fa_decode(unsigned char* ibuf,int* buflen,double*data,int* ndata,
   nval = *ndata;
 
 // no grib compactification -> simply copy the data (but mind the endianness!)
-  if(grib<=0) {
+  if (grib<=0) {
     if( *buflen != 8*nval + 16) {
       Rprintf("ERROR: FA legth=%d, nval=%d\n",*buflen,nval);
       return;
@@ -292,11 +292,11 @@ void fa_decode(unsigned char* ibuf,int* buflen,double*data,int* ndata,
 // grib compactification
   else {
     nbits=INT8(ibuf);
+    ibuf += 8;
 #ifdef DEBUG
     Rprintf("NBITS=%i\n",nbits);
 #endif
-    ibuf += 8;
-    if(spectral){
+    if (spectral) {
       sptrunc=INT8(ibuf);
       pow=INT8(ibuf+8);
       ibuf += 16;

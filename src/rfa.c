@@ -37,6 +37,19 @@ void byteswap(void* data,int size,int n){
   }
 }
 
+// For calling from R, all arguments must be pointers
+void fa_byteswap(void* data, int* size, int* n){
+  unsigned char b;
+  int i,j;
+  unsigned char* buff;
+  buff= (unsigned char*) data;
+  for(j=0;j< *n;j++){
+    for(i=0;i< *size/2;i++) { b=buff[i];buff[i]=buff[*size-1-i];buff[*size-1-i]=b;}
+    buff += *size;
+  }
+}
+
+
 // given an elliptic truncation nmsmax,nsmax and some value n
 // calculate the maximum value of m
 int fa_mmax(int n,int nsmax,int nmsmax){
