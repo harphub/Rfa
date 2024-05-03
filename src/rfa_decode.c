@@ -293,9 +293,11 @@ void fa_decode(unsigned char* ibuf,int* buflen,double*data,int* ndata,
       // single_precision = 1;
       // THIS IS HARDER, because we have to return double to R
       // If nval is odd, there may be some trailing zeroes.
+      // Note that the values are swapped 2 by 2.
+      // We have byteswap in groups of 8 bytes.
       for (i=0; i<nval; i+=2) {
         for (j=0; j<8; j++) spbuf[j] = *(ibuf++) ;
-        if (little_endian) byteswap(spbuf, 4, 2); // or (, 8, 1)
+        if (little_endian) byteswap(spbuf, 8, 1); // NOT (, 4, 2)
         data[i] = (double) *((float*) spbuf);
         if (i < nval-1) data[i+1] = (double) *((float*) (spbuf+4));
       }
