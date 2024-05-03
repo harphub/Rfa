@@ -728,16 +728,16 @@ there may be more integers: the number of bits per encoded value
 (KNBITS), min and max value in the GRIB encoding, non-compressed scale
 (KSTRON).
 
-   entry   gp, no GRIB   gp, GRIB       gp, FA-GRIB       sp, no GRIB   sp, GRIB   sp, FA-GRIB
-  ------- ------------- ---------- --------------------- ------------- ---------- -------------
-   NGRIB     $\le 0$        1           2-4 (usually 2)     $\le 0$        1            2-4
-   NCOSP        0           0                0                 1           1            1
-     3       (data)       KNBITS          KNBITS            (data)       KNBITS      KNBITS
-     4                    (data)            min                          KSTRON      KSTRON
-     5                                      max                          KPUILB      KPUILB
-     6                                    (data)                         (data)        min
-     7                                                                                 max
-     8                                                                               (data)
+   entry   gp, no GRIB     gp, GRIB         gp, FA-GRIB     sp, no GRIB     sp, GRIB      sp, FA-GRIB
+  ------- ------------- -------------- ------------------- ------------- -------------- -------------
+   NGRIB     $\le 0$     1, $\ge 100$    2-4 (usually 2)        $\le 0$   1, $\ge 100$      2-4
+   NCOSP        0           0                 0                  1           1              1
+     3       (data)       KNBITS           KNBITS              (data)       KNBITS        KNBITS
+     4                    (data)            min                             KSTRON        KSTRON
+     5                                      max                             KPUILB        KPUILB
+     6                                     (data)                           (data)          min
+     7                                                                                      max
+     8                                                                                    (data)
 
 **WARNING** in cy43t2, new possibilities have appeared. NGRIB can now have values $-1, 0, 1, 2, 3, 4$ or $120 -- 240$.
 This needs further investigation. For spectral fields, int2$= -1, 3$ signifies that the
@@ -755,6 +755,11 @@ know exactly how the spectral components are ordered. That is quite
 non-trivial. And in fact in rare cases the order may be different (e.g.
 in forecast differences as used by FESTAT, the ordering is that of the
 model, while in FA files the order is changed).
+
+**WARNING:** When running in *single precision*, uncompressed data will also be encoded as such. So Rfa must learn to distinguish this. This has a few bizarre side effects:
+  - For Surfex output, the missing vale (1.E+20) gets "rounded" to 100000002004087734272.
+  - The only way to know that the data is single precision, appears to be by looking at the length of the byte sector.
+  - As you might expect, the 32-bit float values are swapped 2 by 2 (because the encoding passes via 64-bit big endian integers).
 
 ### GRIB encoding
 
@@ -809,6 +814,8 @@ So to decode this:
 4.  Do FFT (as the code takes over, the headache ebbs away).
 
 This has been coded in R.
+
+**WARNING** If the model was running in *single precision*, the uncompressed part may also be in single precision, so you may need to figure this out.
 
 ### GRIB2 encoding
 
