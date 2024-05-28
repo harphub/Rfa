@@ -261,9 +261,12 @@ void fa_decode(unsigned char* ibuf,int* buflen,double*data,int* ndata,
   int spectral,grib,nbits,sptrunc,pow; // possible FA header parameters
   double minval,maxval;
   unsigned char *obuf,*gribmessage;
-  int i,err1,padding,nval,nval1,nval2,griblen;
+  int i,j,err1,padding,nval,nval1,nval2,griblen;
   double *part1,*part2; // used for combining spectral data
   int little_endian=( *(uint16_t*)"\0\xff" > 255); // TRUE if little-endian
+  unsigned char spbuf[8];
+  float sp;
+
 // FIXME: nsmax,nmsmax,are only necessary for calculating NVAL etc.
 // ARPEGE files have a different formula...
   *ERR=1; // if anything goes wrong unexpectedly, ERR=1 is returned
@@ -276,27 +279,49 @@ void fa_decode(unsigned char* ibuf,int* buflen,double*data,int* ndata,
 #endif
   nval = *ndata;
 
-// no grib compactification -> simply copy the data (but mind the endianness!)
-  if(grib<=0) {
-    if( *buflen != 8*nval + 16) {
-      Rprintf("ERROR: FA legth=%d, nval=%d\n",*buflen,nval);
+// no grib compactification -> simply copy the data (but mind the endianness and possibly single precision!)
+// NOTE: it's probably better in this case to avoid the C code. Just do it in R.
+  if (grib<=0) {
+    if( *buflen == 8*nval + 16) {
+      obuf = (unsigned char*) data;
+      for(i=0; i < nval*8; i++) *(obuf++)=*(ibuf++);
+      obuf = (unsigned char*) data;
+      if (little_endian) byteswap(obuf,8,nval);
+    }
+    else if ( *buflen == 4*nval + 16) {
+//      Rprintf("WARNING: assuming single precision data.\n");
+      // single_precision = 1;
+      // THIS IS HARDER, because we have to return double to R
+      // If nval is odd, there may be some trailing zeroes.
+      // Note that the values are swapped 2 by 2.
+      // We have byteswap in groups of 8 bytes.
+      for (i=0; i<nval; i+=2) {
+        for (j=0; j<8; j++) spbuf[j] = *(ibuf++) ;
+        if (little_endian) byteswap(spbuf, 8, 1); // NOT (, 4, 2)
+        data[i] = (double) *((float*) spbuf);
+        if (i < nval-1) data[i+1] = (double) *((float*) (spbuf+4));
+      }
+        
+      // FIXME: in case of Single Precision: byteswap by 4 or by 8?
+      // In echkevo, it is by 8!
+      // byteswap(obuf, 8, nval/2);
+      // So now the values may still be swapped 2 by 2
+    }
+    else {
+      Rprintf("ERROR: FA length=%d, nval=%d\n",*buflen,nval);
       return;
     }
-    obuf = (unsigned char*) data;
-    for(i=nval*8;i;i--) *(obuf++)=*(ibuf++);
-    obuf = (unsigned char*) data;
-    if (little_endian) byteswap(obuf,8,nval);
     *ERR=0;
     return;
   }
 // grib compactification
   else {
     nbits=INT8(ibuf);
+    ibuf += 8;
 #ifdef DEBUG
     Rprintf("NBITS=%i\n",nbits);
 #endif
-    ibuf += 8;
-    if(spectral){
+    if (spectral) {
       sptrunc=INT8(ibuf);
       pow=INT8(ibuf+8);
       ibuf += 16;

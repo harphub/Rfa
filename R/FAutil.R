@@ -1,13 +1,3 @@
-#-- turn n "raw" octets into an (un-)signed integer.
-rawToInt <- function(x,n=length(x),signed=FALSE,endian="big"){
-### every element of x must be a byte -> type "raw" or integer
-  x <- as.integer(x[1:n])
-  if(endian=="small") x <- rev(x)
-  if(!signed | x[1]<128 ) sum(x*256^((n-1):0))
-  else { x[1] <- x[1]-128 ; -sum(x*256^((n-1):0)) }
-}
-
-
 ### Re-order ALADIN model order of raw spectral data to FA file order
 ### useful for some rare cases (Data assimilation)
 FArawreorder <- function(rawdata,nmsmax,nsmax,inv=FALSE){

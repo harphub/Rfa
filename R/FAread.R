@@ -2,28 +2,81 @@
 ## the message is in inbuf (as raw bytestream data)
 FAdec_msg <- function(inbuf, faframe, clip=TRUE, outform="G", quiet=TRUE){
 ## is it spectral data or gridpoint?
-  lspec <- rawToInt(inbuf[9:16])
+  ngrib <- readBin(inbuf[1:8], what="int", size=8, n=1, endian="big")
+  lspec <- readBin(inbuf[9:16], what="int", size=8, n=1, endian="big")
+  if (ngrib > 0) {
+    nbits <- readBin(inbuf[17:24], what="int", size=8, n=1, endian="big")
+  }
 
   if (is.null(faframe$nmsmax) | is.null(faframe$nsmax) | 
      is.null(faframe$ndgl) | is.null(faframe$ndlon) ) stop("Incorrect FA frame.") 
- 
-  if (lspec) {
-    ndata <- .C("fa_countval_spec",as.integer(faframe$nmsmax),as.integer(faframe$nsmax),
+
+  if (ngrib < 100) {
+    # CLASSIC FA
+    if (lspec) {
+      ndata <- .C("fa_countval_spec",as.integer(faframe$nmsmax),as.integer(faframe$nsmax),
                         as.integer(-1),result=integer(1),PACKAGE="Rfa")$result
-  } else {
-    ndata <- faframe$ndgl * faframe$ndlon
-  }
-  if (!quiet) {
-    cat("FA message length:",length(inbuf),"bytes\n")
-    cat("Allocating vectors for ndata=",ndata,"values.\n")
-  }
-  cdata <- .C("fa_decode",ibuf=as.raw(inbuf),buflen=as.integer(length(inbuf)),
+    } else {
+      ndata <- faframe$ndgl * faframe$ndlon
+    }
+    if (!quiet) {
+      cat("FA message length:",length(inbuf),"bytes\n")
+      cat("Allocating vectors for ndata=",ndata,"values.\n")
+    }
+    if (ngrib <= 0 & !lspec) {
+      # non-compacted grid point data. COULD be from surfex!
+      if (ndata == (length(inbuf) - 16)/8 ) {
+        data <- readBin(inbuf[-(1:16)], what = "numeric", size=8, n=ndata, endian="big")
+        sfx_missing <- 1.E20
+      } else if (ndata == (length(inbuf) - 16)/4 ) {
+        # single precision: missing data value in surfex is "rounded":
+        sfx_missing <- 100000002004087734272
+        data <- readBin(inbuf[-(1:16)], what = "numeric", size=4, n=ndata, endian="big")
+        # And, as you may expect, the 32-bit values are SWAPPED 2 BY 2
+        # like in echkevo, because of the use of 64-bit big-endian integers
+        swap <- TRUE
+        if (swap) {
+          ttt1 <- data[c(TRUE, FALSE)]
+          data[c(TRUE, FALSE)] <- data[c(FALSE, TRUE)]
+          data[c(FALSE, TRUE)] <- ttt1
+        }
+      } else {
+        stop("Unexpected data length ",length(inbuf) - 16, " for ", ndata, " data points.")
+      }
+      # We assume that the exact value sfx_missing will not occur in the wild...
+      data[data == sfx_missing] <- NA
+
+    } else {
+      cdata <- .C("fa_decode",ibuf=as.raw(inbuf),buflen=as.integer(length(inbuf)),
                          data=numeric(ndata),ndata=as.integer(ndata),
                          nsmax=as.integer(faframe$nsmax),nmsmax=as.integer(faframe$nmsmax),
                          err=integer(1),PACKAGE="Rfa")
-  if (cdata$err>0) stop("An error occured.")
-  data <- cdata$data
+      if (cdata$err>0) stop("An error occured.")
+      data <- cdata$data
+    }
+  } else {
+    # NEW (eccodes) FA
+    if (!require(Rgrib2)) {
+      stop("This FA file uses eccodes for GRIB encoding. Requires Rgrib2 package to read.")
+    }
+    msg <- inbuf[-(1:24)]
+    if (all(msg[5:8] == charToRaw("BIRG"))) {
+      msg <- .C("fa_byteswap", data=msg, size = as.integer(8), n=as.integer(length(msg)/8))$data
+    } else if (any(msg[1:4] != charToRaw("GRIB"))) {
+      stop("The grib sector seems corrupted?")
+    }
+    # Use Rgrib2 to decode
+    # NOTE: sometimes, the units in GRIB are different from the default in FA
+    #       so we may need to re-scale...
+    #       That's why we must call Ghandle, not just Gdec.
+    gh <- Rgrib2::Ghandle(msg)
+    data <- Rgrib2::Gdec(gh)
+    scaling <- Rgrib2::Ginfo(gh, IntPar=c("FMULTM", "FMULTE"))
+    zmult <- scaling$FMULTM * 10.^scaling$FMULTE
+    data <- data / zmult
+    # TODO: re-order the spectral components? Or is it OK?
 
+  }
   if (!lspec) {
     if (is.element(outform,c("R", "S"))) warning("FA data is in grid format, can not convert.")
     FAdata <- matrix(data,ncol=faframe$ndgl)

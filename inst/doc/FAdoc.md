@@ -7,7 +7,7 @@ author:
     e-mail: alex.deckmyn@meteo.be
 title: |
     File formats in the ALADIN universe\
-    The internal structure of LFI, FA, Surfex and MF files 
+    The internal structure of LFI, FA, Surfex and MF files
 ---
 
 **THIS IS WORK IN PROGRESS!!!**
@@ -176,15 +176,15 @@ Logique” as a *data record* (either a data field or part of the frame).
 
 -   S1[14] Creation date (integer yyyymmdd).
 
--   S1[15] Creation hour (integer hhmmss).
+-   S1[15] Creation time (integer hhmmss).
 
 -   S1[16] Date of last modification (integer yyyymmdd).
 
--   S1[17] Hour of last modification (integer hhmmss).
+-   S1[17] Time of last modification (integer hhmmss).
 
 -   S1[18] Date of first modification.
 
--   S1[19] Hour of first modification.
+-   S1[19] Time of first modification.
 
 -   S1[20] Number of pairs of index sectors. Usually 1. I don’t really
     know what this means. *It is 1 even if there is a second sector for
@@ -393,7 +393,7 @@ defining the projection:
         Lon0 <- LFIread(lfi,"LON0","numeric")
     #  rpk <-  LFIread(lfi,"RPK","numeric")  ### not necessary
     #  beta <- LFIread(lfi,"BETA","numeric") ### assumed 0
-        xhat <- LFIread(lfi,"XHAT","numeric") 
+        xhat <- LFIread(lfi,"XHAT","numeric")
         yhat <- LFIread(lfi,"YHAT","numeric")
         dx <- xhat[2] - xhat[1]
         dy <- yhat[2] - yhat[1]
@@ -496,7 +496,7 @@ characteristics:
 
           ALADIN                                                  ARPEGE
   ------- ------------------------------------------------------- --------
-   int 1  subtruncation                                           
+   int 1  subtruncation
    int 2  0:C+I gp,
           -1:C+I+E gp,
           1:C+I+E spectral for dynamical fields and gp for rest  
@@ -717,32 +717,30 @@ scales. In all, this gives us a list of different cases to consider.
 Some are quite easy, others less so.
 
 The first two entries (64 bit integers) define the kind of data that is
-encoded in the field. Integer 1 gives the kind of encoding (none,
+encoded in the field. Integer 1 (NGRIB) gives the kind of encoding (none,
 internal GRIB or GRIBEX ...). Value 2 is more common than 1. This “FA
 extended” GRIB encoding adds separate *min* and *max* values that are
 used for more exact reconstruction of the original values. If the GRIB
 type is 1, the minimum value is read from the GRIB message itself, and
-the maximum is derived from that. The second integer indicates whether
+the maximum is derived from that. The second integer (NCOSP) indicates whether
 it is spectral or grid point data. Depending on those 6 combinations,
 there may be more integers: the number of bits per encoded value
 (KNBITS), min and max value in the GRIB encoding, non-compressed scale
 (KSTRON).
 
-   entry   gp, no GRIB   gp, GRIB       gp, FA-GRIB       sp, no GRIB   sp, GRIB   sp, FA-GRIB
-  ------- ------------- ---------- --------------------- ------------- ---------- -------------
-   int 1     $\le 0$        1       $\ge 2$ (usually 2)     $\le 0$        1         $\ge 2$
-   int 2        0           0                0                 1           1            1
-     3       (data)       KNBITS          KNBITS            (data)       KNBITS      KNBITS
-     4                    (data)            min                          KSTRON      KSTRON
-     5                                      max                          KPUILB      KPUILB
-     6                                    (data)                         (data)        min
-     7                                                                                 max
-     8                                                                               (data)
+   entry   gp, no GRIB     gp, GRIB         gp, FA-GRIB     sp, no GRIB     sp, GRIB      sp, FA-GRIB
+  ------- ------------- -------------- ------------------- ------------- -------------- -------------
+   NGRIB     $\le 0$     1, $\ge 100$    2-4 (usually 2)        $\le 0$   1, $\ge 100$      2-4
+   NCOSP        0           0                 0                  1           1              1
+     3       (data)       KNBITS           KNBITS              (data)       KNBITS        KNBITS
+     4                    (data)            min                             KSTRON        KSTRON
+     5                                      max                             KPUILB        KPUILB
+     6                                     (data)                           (data)          min
+     7                                                                                      max
+     8                                                                                    (data)
 
-**WARNING** in cy43t2, new possibilities have appeared. The first
-integer can now have values $-1, 0, 1, 2, 3, 4$. $-1$ and $3$ signify a
-different ordering of spectral coefficients. This needs further
-investigation. For spectral fields, int2$= -1, 3$ signifies that the
+**WARNING** in cy43t2, new possibilities have appeared. NGRIB can now have values $-1, 0, 1, 2, 3, 4$ or $120 -- 240$.
+This needs further investigation. For spectral fields, int2$= -1, 3$ signifies that the
 spectral coefficients are ordered differently (i.e. like in the model
 vector).
 
@@ -758,13 +756,19 @@ non-trivial. And in fact in rare cases the order may be different (e.g.
 in forecast differences as used by FESTAT, the ordering is that of the
 model, while in FA files the order is changed).
 
+**WARNING:** When running in *single precision*, uncompressed data will also be encoded as such. So Rfa must learn to distinguish this. This has a few bizarre side effects:
+  - For Surfex output, the missing vale (1.E+20) gets "rounded" to 100000002004087734272.
+  - The only way to know that the data is single precision, appears to be by looking at the length of the byte sector.
+  - As you might expect, the 32-bit float values are swapped 2 by 2 (because the encoding passes via 64-bit big endian integers).
+
 ### GRIB encoding
 
 The GRIB encoding used by the FA library is not exactly the same as in
-the WMO documentation. It appears to be GRIB-0 as opposed to GRIB-1 as
+the WMO documentation. The most common type appears to be GRIB-0 as opposed to GRIB-1 as
 used in e.g. GRIBEX. There is an option to use GRIBEX encoding in the FA
 file in stead of the old GRIB-0, but I am not aware whether this is ever
-used.
+used. More recently (as of cy43) there is also an option to encode as grib-2 using eccodes.
+That is described in the next section.
 
 In fact only the actual bit-compression of GRIB is used. We are not
 interested in the identification section, as the meta-data is in the FA
@@ -778,9 +782,6 @@ and go straight to the actual compressed data section. A little check
 (e.g. same number of bits per value?) may be appropriate, but don’t
 spend too much time on that. If GRIB type is 1, you do need to read the
 minimum value (an IBM-formatted float) and scaling.
-
-**NOTE: in cy43t1, grib-1 and even grib-2 were introduced. I’ll document
-that as soon as I found out how it works.**
 
 ### Spectral data
 
@@ -814,6 +815,56 @@ So to decode this:
 
 This has been coded in R.
 
+**WARNING** If the model was running in *single precision*, the uncompressed part may also be in single precision, so you may need to figure this out.
+
+### GRIB2 encoding
+
+NGRIB values between 120 to 240 signify new encoding manner using
+eccodes from ECMWF. The integer NGRIB serves as a kind of flag that describes how spectral and 
+grid point fields are encoded. This is documented in falgra.h and in the FullPos documentation.
+
+mod(NGRIB,20) defines the spectral encoding:
+1 :  GRIB2 complex packing (in fact a bug)
+2 :  GRIB0 (actually the old encoding?)
+3 :  GRIB2 complex packing
+4 :  GRIB2 ccsds packing
+
+(NGRIB-100) // 20 (integer division) defines the grid point encoding
+1 :  GRIB2 siple packing
+2 :  GRIB2 second order packing
+3 :  GRIB1 simple packing
+4 :  GRIB1 second order packing
+5 :  GRIB2 complex packing
+6 :  GRIB2 ccsds packing
+
+So for instance, NGRIB=224 means ccsds packing for both spectral and grid point fields.
+
+**WARNING** it appears that in this new version, the data stream is **byte-swapped**!
+Presumably this was developped on a big-endian platform where the data was
+first read as big-endian 8-byte integers and then passed to eccodes.
+But now, on little-endian platforms this effectively means that the data stream must
+be **byte-swapped in chuncks of 8 bytes**. More or less the same weird situation as ECHKEVO files.
+This can be seen from the fact that the data does not begin with "GRIB" as character string, but the characters 5 to 8 are "BIRG".
+
+**NOTE** The data is encoded in grib-2 using the standard units. This means that sometimes teh field is stored in other units than FA. For instance, relative humidity is a fraction in FA but a percentage in FA. This is solved by having extra local definitions in eccodes, defined only for originatingCenter=85 (Toulouse):
+FMULTE (default 0) and FMULTM (default 1) describe the scale difference between the value in FA units and GRIB2 units. So when decoding via eccodes, you must apply the inverse multiplication to retrieve the values in FA units. The multiplication factor is FMULTI = FMULTM * 10 ** FMULTE. In the case of relative humidity, FMULTE=2.
+
+### Externalised GRIB2 sectors
+
+By setting LEXTERN = .T. in FullPos, the output FA file is split into 2 parts. The actual FA file will have all the header sectors and frame data as before, while a second file, called **GRIB<name of FA file>** has the GRIB2 data. In the FA file, the data sector will only consist of 5 integers (8 bit, big endian):
+1: NGRIB
+2: SPECTRAL y/n
+3: NBITS
+4: byte address
+5: ???
+
+The fourth number is the byte address of the GRIB2 sector in the accompany. So effectively, the data is now available in a standard GRIB file, while the FA file serves as an efficient index.
+
+**NOTE** If you read the data with FA decoder or straight from the GRIB file with eccodes, you may in some cases get different results (e.g. fraction vs. percentage).
+
+**NOTE** In this externalised case, the GRIB file is no longer byte-swapped in chuncks of 8 bytes. It is a perfectly legal GRIB2 file that can be read with eccodes (or other tools).
+
+
 #ECHKEVO
 
 ECHKEVO files are a bit more obscure. It is possible to write some
@@ -831,7 +882,7 @@ would not be a problem if all computers were big endian. But a
 company named INTEL (you may have heard of it) produces some quite
 popular hardware that is little endian. If a model run is performed on
 such hardware, the values are written as a byte-swapped 64bit integer,
-effectively swapping the values two by two. The worst part of it is that
+effectively swapping the (32 bit) values two by two. The worst part of it is that
 this is invisible a posteriori. You have to know that if the ECHKEVO
 output was *produced* on a little endian machine, the values are swapped
 two by two. Nowadays that is in fact the most common case.

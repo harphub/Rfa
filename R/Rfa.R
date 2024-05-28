@@ -71,7 +71,9 @@ FAopen <- function(filename, archname=NULL, tar.offset=NULL, lparse=TRUE, quiet=
                                nfields=as.integer(nfields),
                                fnames=rep("                ",nfields),foffset=numeric(nfields),
                                flen=integer(nfields),findex=integer(nfields),
-                               spectral=integer(nfields),nbits=integer(nfields),
+                               spectral=integer(nfields),
+                               ngrib=integer(nfields),
+                               nbits=integer(nfields),
                                sptrunc=integer(nfields),sppow=integer(nfields),
                                hoffset=numeric(nholes+1),hlen=integer(nholes+1),
                                hindex=integer(nholes+1),lparse=as.integer(lparse),err=integer(1))
@@ -80,7 +82,9 @@ FAopen <- function(filename, archname=NULL, tar.offset=NULL, lparse=TRUE, quiet=
 #-- so we can no longer hard-code the number "7"!
   nmeta <- length(metadata)
   falist <- data.frame(name=faparse$fnames,offset=faparse$foffset,length=faparse$flen,
-                 spectral=faparse$spectral,nbits=faparse$nbits,
+                 spectral=faparse$spectral,
+                 ngrib=faparse$ngrib,
+                 nbits=faparse$nbits,
                  sptrunc=faparse$sptrunc,sppow=faparse$sppow,index=faparse$findex,
                  stringsAsFactors=FALSE)[-(1:nmeta),]
   metalist <- data.frame(name=faparse$fnames, offset=faparse$foffset, length=faparse$flen,
@@ -94,6 +98,7 @@ FAopen <- function(filename, archname=NULL, tar.offset=NULL, lparse=TRUE, quiet=
     falist$sppow[!falist$spectral | is.na(falist$nbits)] <- NA
   } else {
     falist$spectral <- NULL
+    falist$ngrib <- NULL
     falist$nbits <- NULL
     falist$sptrunc <- NULL
     falist$sppow <- NULL

@@ -1,11 +1,12 @@
 Package: Rfa
-Version: 4.3.7
-Date: 2023-07-27
+Version: 4.3.8
+Date: 2024-05-03
 Title: Read and work with binary FA files (Alaro/Arome LAM model output)
 Description: Contains functions for reading and writing binary FA files. 
 Author: Alex Deckmyn <alex.deckmyn@meteo.be>.
 Maintainer: Alex Deckmyn <alex.deckmyn@meteo.be>
 Depends: meteogrid (>= 3.7.0)
+Suggests: Rgrib2
 NeedsCompilation: yes
 License: Apache 2.0
 URL:

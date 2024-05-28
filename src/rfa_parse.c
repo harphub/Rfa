@@ -114,7 +114,7 @@ void fa_fastfind_name(char **filename, double *tar_offset,char **fnm, char **fna
 void fa_parse_file(char** filename,double* tar_offset,
 		   int* ninfields,
                    char** fnames,double* foffset,int* flen,int*findex,
-                   int* spectral,int* nbits,int* sptrunc,int* sppow,
+                   int* spectral,int* ngrib, int* nbits,int* sptrunc,int* sppow,
                    double* hoffset,int* hlen,int*hindex,int* lparse,int* err){
 
   FILE* fafile;
@@ -310,7 +310,8 @@ void fa_parse_file(char** filename,double* tar_offset,
     if (little_endian) byteswap(buff,8,2);
 //    Rprintf("%s: grib=%li, spectral=%li\n",fnames[i],buff[0],buff[1]);
 //    grib[i]=buff[0]; // GRIB or not
-    spectral[i]=buff[1];
+    ngrib[i] = buff[0];
+    spectral[i] = buff[1];
     if (buff[0]>=1) { // GRIB compactification
       if ((k=fread(buff,8,1,fafile)) != 1) {
         Rprintf("ERROR occured. File appears to be corrupted.\n");
