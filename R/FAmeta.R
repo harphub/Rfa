@@ -347,7 +347,10 @@ FAframe <- function(metadata){
 FAdomain <- function(faframe,quiet=TRUE){
 ### Create the "geodomain" specification for a given FA frame
   if (!inherits(faframe,"FAframe")) stop("Not a FAframe object.")
-  if (faframe$FAtype != "aladin") stop("Only aladin type supported for now!")  
+  if (faframe$FAtype != "aladin") {
+    warning("Only aladin (LAM) domains supported for now!")
+    return(NA)
+  }
 
 ### FArpp(2) : -1 means gridpoint on C+I+E, +1 spectral
 ### For the physical domain: no extension zone !!!

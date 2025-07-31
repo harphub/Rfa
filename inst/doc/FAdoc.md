@@ -490,13 +490,12 @@ In most ALADIN cases, you may expect this section to contain only 0’s.
 
 ### CADRE\_REDPOINPOL
 
-A list of 8+2\*(NSMAX+2) integers. The first 8 are important, because
-they define the interpolation zone of the domain and some other
+A list of 8+2\*(NSMAX+2) integers, followed by some more (*at least half the number of latitude rows and even*). For LAM, only the first 8 are important, because they define the interpolation zone of the domain and some other
 characteristics:
 
           ALADIN                                                  ARPEGE
   ------- ------------------------------------------------------- --------
-   int 1  subtruncation
+   int 1  subtruncation (unused?)
    int 2  0:C+I gp,
           -1:C+I+E gp,
           1:C+I+E spectral for dynamical fields and gp for rest  
@@ -507,7 +506,11 @@ characteristics:
    int 7  I zone in X axis (8)                                    
    int 8  I zone in Y axis (8)                                    
 
-1.  Packed subtruncation
+For LAM grids, the remainder is not so important (contains some info on the ordering of spectral coefficients that can be reproduced pretty easily).
+
+
+
+1.  Packed subtruncation. I think this is only the default value, not the one actually used in a particular field. As such, it is **totally irrelevant**. But up to cy48, the model code checks this value and aborts if it is "wrong".
 
 2.  domain representation: 0 (gridpoint C+I), -1 (gridpoint C+I+E), 1
     (spectral for dynamical fields, rest is gridopint on C+I+E)
@@ -610,7 +613,8 @@ The name of this record is the “frame name”. This is e.g. used in model
 runs to distinguish different post-processing domains. But for offline
 decoding of data, it is hardly of any use. The data in this record is 1
 (64bit) integer, signifying the version of the FA files. To my
-knowledge, this is still 1 in all cases.
+knowledge, this is still 1 in all cases. Given all the variations in FA
+files, this really makes me wonder about the use of having a version number.
 
 ### DATE-DES-DONNEES
 
@@ -739,7 +743,7 @@ there may be more integers: the number of bits per encoded value
      7                                                                                      max
      8                                                                                    (data)
 
-**WARNING** in cy43t2, new possibilities have appeared. NGRIB can now have values $-1, 0, 1, 2, 3, 4$ or $120 -- 240$.
+**WARNING** in cy43t2, new possibilities have appeared. NGRIB can now have values $-1, 0, 1, 2, 3, 4$ or $120 -- 240$. The values abover 100 indicate GRIB-2 compression.
 This needs further investigation. For spectral fields, int2$= -1, 3$ signifies that the
 spectral coefficients are ordered differently (i.e. like in the model
 vector).
@@ -759,9 +763,9 @@ model, while in FA files the order is changed).
 **WARNING:** When running in *single precision*, uncompressed data will also be encoded as such. So Rfa must learn to distinguish this. This has a few bizarre side effects:
   - For Surfex output, the missing vale (1.E+20) gets "rounded" to 100000002004087734272.
   - The only way to know that the data is single precision, appears to be by looking at the length of the byte sector.
-  - As you might expect, the 32-bit float values are swapped 2 by 2 (because the encoding passes via 64-bit big endian integers).
+  - As you might expect, the 32-bit float values are swapped 2 by 2 (because the encoding passes via 64-bit big endian integers). Similar to what happens with echkevo files.
 
-### GRIB encoding
+### GRIB-0 encoding
 
 The GRIB encoding used by the FA library is not exactly the same as in
 the WMO documentation. The most common type appears to be GRIB-0 as opposed to GRIB-1 as
@@ -770,9 +774,9 @@ file in stead of the old GRIB-0, but I am not aware whether this is ever
 used. More recently (as of cy43) there is also an option to encode as grib-2 using eccodes.
 That is described in the next section.
 
-In fact only the actual bit-compression of GRIB is used. We are not
+In fact only the actual bit-compression of GRIB is used. We are not so
 interested in the identification section, as the meta-data is in the FA
-frame anyway! If the GRIB type is $\ge 2$, even the minimum value and
+frame anyway! If the GRIB type is $2 -- 4$, even the minimum value and
 scaling are not taken from the GRIB part but from the FA frame. The only
 data we need is the number of bits per value. That is also given in the
 non-compressed header data.
@@ -846,7 +850,7 @@ But now, on little-endian platforms this effectively means that the data stream 
 be **byte-swapped in chuncks of 8 bytes**. More or less the same weird situation as ECHKEVO files.
 This can be seen from the fact that the data does not begin with "GRIB" as character string, but the characters 5 to 8 are "BIRG".
 
-**NOTE** The data is encoded in grib-2 using the standard units. This means that sometimes teh field is stored in other units than FA. For instance, relative humidity is a fraction in FA but a percentage in FA. This is solved by having extra local definitions in eccodes, defined only for originatingCenter=85 (Toulouse):
+**NOTE** The data is encoded in grib-2 using the standard units. This means that sometimes the field is stored in other units than FA. For instance, relative humidity is a fraction in FA but a percentage in FA. This is solved by having extra local definitions in eccodes, defined only for originatingCenter=85 (Toulouse):
 FMULTE (default 0) and FMULTM (default 1) describe the scale difference between the value in FA units and GRIB2 units. So when decoding via eccodes, you must apply the inverse multiplication to retrieve the values in FA units. The multiplication factor is FMULTI = FMULTM * 10 ** FMULTE. In the case of relative humidity, FMULTE=2.
 
 ### Externalised GRIB2 sectors

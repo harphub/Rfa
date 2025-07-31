@@ -139,13 +139,16 @@ FAsounding <- function(fa, par="TEMPERATURE", lon=NULL, lat=NULL, index=NULL, id
 ## TODO: if npar>1, try to do all interpolations in 1 call 
 ##       -> only calculate pressures and interpol weights once
     if (!is.null(plevels.out)) {
+      plevels.out <- sort(plevels.out)
       result <- data.frame("p"=rep(plevels.out, npoints)/100)
       if (LID) result <- cbind("id"=rep(id,each=length(plevels.out)),result)
     } else {
       pressures <- vapply(X   = surfpres,
                           FUN = FApressures.local,
                           FUN.VALUE = numeric(nlev), faframe=fa)
-      result <- data.frame("p"=as.vector(pressures)/100)
+      result <- data.frame("p"=as.vector(pressures)/100,
+                           "model_level"=rep(1:nlev, npoints))
+      if (LID) result$id <- rep(id, each=nlev)
     }
   } else if (levtype=="P") { # pressure levels directly from FA file
     # no vertical interpolation: use plevels.out only for subselection
@@ -166,7 +169,7 @@ FAsounding <- function(fa, par="TEMPERATURE", lon=NULL, lat=NULL, index=NULL, id
 # we will pass this to C as a vector, so make sure that nlev is the first dimension
 # so every points is represented by a vector of nlev values
     for (ll in 1:nlev){
-      print(ll)
+      #print(ll)
       if (levtype == "S") field <- sprintf("S%03i%-12.12s", ll, par[pp])
       else if (levtype == "P") field <- sprintf("P%s%-10.10s", plist[ll], par[pp])
       else stop("unknown levtype", levtype)
@@ -179,7 +182,7 @@ FAsounding <- function(fa, par="TEMPERATURE", lon=NULL, lat=NULL, index=NULL, id
                                pref=attr(fa, "frame")$levels$refpressure,
                                psurf=surfpres, nlev=as.integer(nlev),
                                v_in=sounding, npoints=as.integer(npoints),
-                               p_out=numeric(npo), n_out=as.integer(npo),
+                               p_out=log(plevels.out), n_out=as.integer(npo),
                                v_out=numeric(npo*npoints))$v_out
     }
 
