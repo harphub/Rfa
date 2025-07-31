@@ -139,6 +139,7 @@ FAsounding <- function(fa, par="TEMPERATURE", lon=NULL, lat=NULL, index=NULL, id
 ## TODO: if npar>1, try to do all interpolations in 1 call 
 ##       -> only calculate pressures and interpol weights once
     if (!is.null(plevels.out)) {
+      plevels.out <- sort(plevels.out)
       result <- data.frame("p"=rep(plevels.out, npoints)/100)
       if (LID) result <- cbind("id"=rep(id,each=length(plevels.out)),result)
     } else {
@@ -181,7 +182,7 @@ FAsounding <- function(fa, par="TEMPERATURE", lon=NULL, lat=NULL, index=NULL, id
                                pref=attr(fa, "frame")$levels$refpressure,
                                psurf=surfpres, nlev=as.integer(nlev),
                                v_in=sounding, npoints=as.integer(npoints),
-                               p_out=numeric(npo), n_out=as.integer(npo),
+                               p_out=log(plevels.out), n_out=as.integer(npo),
                                v_out=numeric(npo*npoints))$v_out
     }
 
